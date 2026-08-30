@@ -1,0 +1,376 @@
+openapi: 3.0.3
+info:
+  title: Utility API Toolkit
+  description: High-performance, modular REST API toolkit providing image compression, QR code generation, and slug conversion.
+  version: 1.0.0
+  contact:
+    name: API Support
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+  - url: https://utility-api-toolkit.up.railway.app
+    description: Production server
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: API Key authentication header
+
+  schemas:
+    ApiResponseError:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Invalid request payload
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                    example: text
+                  message:
+                    type: string
+                    example: text cannot be empty
+
+    SlugRequest:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+          description: Input string to convert to slug
+          example: Building Scalable REST APIs with TypeScript
+        lowercase:
+          type: boolean
+          default: true
+          description: Whether to convert the slug to lowercase
+          example: true
+        separator:
+          type: string
+          default: "-"
+          maxLength: 5
+          description: Replacement separator for spaces and special characters
+          example: "-"
+
+    SlugResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - slug
+          properties:
+            slug:
+              type: string
+              example: building-scalable-rest-apis-with-typescript
+
+    QrRequest:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+          maxLength: 2000
+          description: Text or URL encoded in the QR code
+          example: https://github.com
+        format:
+          type: string
+          enum: [png, svg, base64]
+          default: png
+          description: Target output format
+          example: png
+        size:
+          type: integer
+          minimum: 50
+          maximum: 2000
+          default: 300
+          description: Pixel width and height of the generated QR code
+          example: 300
+
+    QrBase64Response:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - qr
+            - format
+          properties:
+            qr:
+              type: string
+              example: data:image/png;base64,iVBORw0KGgoAAAANSUhEUg...
+            format:
+              type: string
+              example: base64
+            size:
+              type: integer
+              example: 300
+
+    ImageCompressJsonResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - format
+            - contentType
+            - originalSize
+            - compressedSize
+            - savingsPercentage
+            - base64
+          properties:
+            format:
+              type: string
+              enum: [jpeg, png, webp]
+              example: webp
+            contentType:
+              type: string
+              example: image/webp
+            originalSize:
+              type: integer
+              description: Original size in bytes
+              example: 245100
+            compressedSize:
+              type: integer
+              description: Compressed size in bytes
+              example: 98400
+            savingsPercentage:
+              type: number
+              description: Compression reduction percentage
+              example: 59.85
+            base64:
+              type: string
+              description: Data URL with base64 encoded image
+              example: data:image/webp;base64,UklGRm...
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          example: ok
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-08-31T00:00:00.000Z"
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns server operational status. Does not require API key.
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /api/v1/slug:
+    post:
+      summary: Generate URL-friendly slug
+      description: Converts arbitrary text into a clean URL-friendly slug.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SlugRequest"
+      responses:
+        "200":
+          description: Slug successfully created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SlugResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseError"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseError"
+
+  /api/v1/qr/generate:
+    post:
+      summary: Generate QR code
+      description: Generates a QR code image as PNG binary, SVG markup, or Base64 data URL.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QrRequest"
+      responses:
+        "200":
+          description: QR code generated
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/svg+xml:
+              schema:
+                type: string
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QrBase64Response"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseError"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseError"
+
+  /api/v1/image/compress:
+    post:
+      summary: Compress and convert image
+      description: In-memory image compression supporting JPEG, PNG, and WebP outputs with configurable quality.
+      parameters:
+        - in: query
+          name: response
+          schema:
+            type: string
+            enum: [binary, json]
+          description: Set to json to receive base64 payload instead of binary stream
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Raw image file to compress (max 10MB)
+                quality:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  default: 80
+                  description: Compression quality factor
+                format:
+                  type: string
+                  enum: [jpeg, png, webp]
+                  description: Optional target format conversion
+                response:
+                  type: string
+                  enum: [binary, json]
+                  description: Request json response format
+      responses:
+        "200":
+          description: Compressed image file or base64 JSON payload
+          headers:
+            X-Original-Size:
+              schema:
+                type: string
+              description: Original file size in bytes
+            X-Compressed-Size:
+              schema:
+                type: string
+              description: Compressed file size in bytes
+            X-Savings-Percentage:
+              schema:
+                type: string
+              description: Calculated savings percentage
+          content:
+            image/webp:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageCompressJsonResponse"
+        "400":
+          description: Bad request or corrupt image
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseError"
+        "413":
+          description: File size exceeds 10MB limit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseError"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseError"
